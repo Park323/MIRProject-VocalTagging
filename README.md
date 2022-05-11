@@ -6,7 +6,7 @@ KVT dataset을 사용하여 semantic tagging을 scratch에서부터 구현해보
 
 ## Repo
 └ __data__\
-    └ ???\
+&nbsp;&nbsp;&nbsp;&nbsp;└ ???\
 └ dataloader.py : dataset을 처리하고 dataloader를 정의한다.\
 └ model.py : semantic tagging 모델을 정의한다.\
 └ train.py : dataloader를 불러와 model로 학습을 진행한다.\
