@@ -16,3 +16,13 @@ KVT dataset을 사용하여 semantic tagging을 scratch에서부터 구현해보
 - base_model
 
 ![image](https://user-images.githubusercontent.com/42057488/169036325-27564cdf-7e90-4dca-a42a-7050734b4e00.png)
+
+
+## HowTo
+### train example
+train with learning rate 0.0001 for 5 epochs
+```
+python train.py -learning_rate 0.0001 -epoch 5
+```
+linux 환경에서 실행하는 명령어를 적어놓았구요, colab에서 작동시키시려면 git clone으로 저장소 불러와서, !python 사용하시면 됩니다.
+자세한 내용은 카톡으로 논의 나눕시다!
