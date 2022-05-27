@@ -7,7 +7,8 @@ KVT dataset을 사용하여 semantic tagging을 scratch에서부터 구현해보
 ## Directory
 └ __data__\
 &nbsp;&nbsp;&nbsp;&nbsp;└ ???\
-└ dataloader.py : dataset을 처리하고 dataloader를 정의한다.\
+└ utils.py : Loss, Metric 등을 불러오기 위해 정의된다.\
+└ dataset.py : dataset을 정의한다.\
 └ model.py : semantic tagging 모델을 정의한다.\
 └ train.py : dataloader를 불러와 model로 학습을 진행한다.\
 └ test.py : 학습된 model을 불러오고, inference 내용을 출력한다.\
