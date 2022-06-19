@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 from tqdm import tqdm
 
 import torch
@@ -55,6 +56,10 @@ def train(model, dataloader, criterion, optimizer, history, train=True):
 
 
 def main(args):
+    Train_DIR = Path('/content/train_files2.pkl')
+    Vaild_DIR = Path('/content/valid_files2.pkl')
+    Test_DIR = Path('/content/test_files2.pkl') 
+
     ## Load Data
     DATA_PATH = args.data_path
     trainset = SampleDataset(DATA_PATH)
