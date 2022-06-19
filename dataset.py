@@ -1,3 +1,5 @@
+import os
+import glob
 import pickle
 from pathlib import Path
 
@@ -8,12 +10,11 @@ import pandas as pd
 
 
 def get_mel_spectrogram(file_path, save_dir, SR = 22050):
-    file_name = file_path.split('/')[-1].replace('.mp3','')
     audio, sr = torchaudio.load(file_path)
     audio = audio.mean(dim=0)
     audio = torchaudio.transforms.Resample(orig_freq=sr, new_freq=SR)(audio)
     
-    spec = torchaudio.functional.spectrogram(y, n_fft=1024,
+    spec = torchaudio.functional.spectrogram(audio, n_fft=1024,
                                          hop_length=512, 
                                          pad=0, 
                                          win_length=1024,
@@ -29,44 +30,42 @@ def get_mel_spectrogram(file_path, save_dir, SR = 22050):
                                            n_stft=spec.shape[0])
     mel_spec = mel_scale(spec)
     
-    mel_spec = torch.log(1+10 * mel_spec).unsqueeze(-1)
+    mel_spec = torch.log(1+10 * mel_spec).unsqueeze(0)
     
-    for i in range(4):
-        torch.save(mel_spec[:,107*i:107*(i+1)], f"{save_dir}/{file_name}_{i}.pt")
-
-def preprocess(root_dir, aud_file, save_dir, SR = 22050):
+    return mel_spec
+    
+def preprocess(root_dir, aud_file, label_file, save_dir, threshold = 2, SR = 22050):
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    
     files = pickle.load(open(aud_file, 'rb'))
-    for file in files:
+    labels = pickle.load(open(label_file, 'rb'))
+    
+    for file, label in zip(files, labels):
         aud_path = root_dir + '/' + file
-        get_mel_spectrogram(aud_path, save_dir, SR)
+        mel_spec = get_mel_spectrogram(aud_path, save_dir, SR)
+        
+        label = torch.tensor(list(label.values()))
+        label = (label >= threshold).to(int)
+        
+        for i in range(4):
+            data = (mel_spec[:,:,107*i:107*(i+1)], label)
+            torch.save(data, f"{save_dir}/{file}_{i}.pt")
+
 
 
 class OurDataset:
     
-    def __init__(self, root_dir, aud_file, label_file, SR = 22050):
-        self.root = root_dir
-        self.files = pickle.load(open(aud_file, 'rb'))
-        self.labels = pickle.load(open(label_file, 'rb'))
-        self.sr = SR
-        self.threshold = 2
-        
-    def convert_label_to_tensor(self):
-        return torch.LongTensor(self.train.values[:, 1:-1].astype('bool'))
+    def __init__(self, root_dir):
+        self.files = glob.glob(f"{root_dir}/*.pt")
 
     def __len__(self):
         return len(self.files)
 
     def __getitem__(self, idx):
-        aud_path = self.root + '/' + self.files[idx]
-        audio, sr = torchaudio.load(aud_path)
-        audio = audio.mean(dim=0)
-        audio = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sr)(audio)
-        
-        label_dict = self.labels[idx]
-        label = torch.tensor(list(label_dict.values))
-        label = (label > self.threshold).to(int)
-        
+        audio, label = torch.load(self.files[idx])
         return audio, label  # mel_spectrogram, label
+
 
 class SampleDataset:
     def __init__(self, csv_path, split='train', sr=16000):
