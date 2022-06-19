@@ -5,6 +5,9 @@ import torch.nn as nn
 def get_criterion():
     return nn.BCEWithLogitsLoss()
 
+def get_metric():
+    
+    return nn.BCEWithLogitsLoss()
     
 def get_optimizer(model, lr, method='adam'):
     if method == 'adam':
@@ -13,4 +16,15 @@ def get_optimizer(model, lr, method='adam'):
 
 def get_scheduler(optimizer, method='none'):
     if method == 'none':
+        return None
+    
+    
+class F_score(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+    def forward(self, x):
+        '''
+        x : (N, 42)
+        '''
         return None

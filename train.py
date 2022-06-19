@@ -17,7 +17,7 @@ from utils import *
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
-def train(model, dataloader, criterion, optimizer, history, epoch=0, train=True):
+def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, train=True):
     '''
     Train model with data
     
@@ -71,22 +71,23 @@ def main(args):
     
     trainset = OurDataset(TRAIN_DIR)
     valset = OurDataset(VAL_DIR)
-    trainloader = DataLoader(trainset, batch_size=8)
-    valloader = DataLoader(valset, batch_size=8)
+    trainloader = DataLoader(trainset, batch_size=args.batch_size)
+    valloader = DataLoader(valset, batch_size=args.batch_size)
     
     ## Define Model
     model = base_model().to(DEVICE)
     
     ## Define functions for training
     criterion = get_criterion()
+    metric = get_metric()
     optimizer = get_optimizer(model, args.learning_rate)
     
     ## Train
     history = {'train_loss':[], 
                'valid_loss':[]}
     for epoch in range(args.epoch):
-        train(model, trainloader, criterion, optimizer, history, epoch=epoch, train=True)
-        train(model, valloader, criterion, optimizer, history, epoch=epoch, train=False)
+        train(model, trainloader, criterion, metric, optimizer, history, epoch=epoch, train=True)
+        train(model, valloader, criterion, metric, optimizer, history, epoch=epoch, train=False)
         
         if not os.path.exists('results'):
             os.makedirs('results')
@@ -104,6 +105,7 @@ def get_args():
     parser.add_argument('--valid_dir', default='data')
     parser.add_argument('--model', default='base')
     parser.add_argument('--epoch', default=5, type=int)
+    parser.add_argument('--batch_size', default=8, type=int)
     parser.add_argument('--learning_rate', default=0.0001, type=float)
     args = parser.parse_args()
     return args
