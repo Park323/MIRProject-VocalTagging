@@ -3,11 +3,10 @@ import torch.nn as nn
 
 
 def get_criterion():
-    return nn.BCEWithLogitsLoss()
+    return nn.BCELoss()
 
 def get_metric():
-    
-    return nn.BCEWithLogitsLoss()
+    return None
     
 def get_optimizer(model, lr, method='adam'):
     if method == 'adam':
