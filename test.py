@@ -57,7 +57,7 @@ def test(model, dataloader, criterion, metric):
             
             batch_idx += 1
         
-    return mean_loss, mean_score
+    return mean_loss/batch_idx, mean_score/batch_idx
 
 def main(args):
 

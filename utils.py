@@ -1,10 +1,15 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from model import base_model#, resnet2d_model
 
-def get_criterion():
-    return nn.BCEWithLogitsLoss()
+def get_criterion(method='bce'):
+    if method=='bce':
+        return nn.BCEWithLogitsLoss()
+    elif method=='mse':
+        mse = nn.MSELoss()
+        return lambda x, y: mse(torch.sigmoid(x.to(float)), y)
 
 def get_metric(threshold=None):
     return F_score(threshold)
@@ -27,8 +32,9 @@ def get_model(model, output_dim=None):
     
     
 class F_score(nn.Module):
-    def __init__(self, threshold=None):
+    def __init__(self, ltype='binary', threshold=None):
         super().__init__()
+        self.ltype = ltype
         if threshold is not None:
             self.THRESHOLDS = threshold
         else:
@@ -43,6 +49,8 @@ class F_score(nn.Module):
         x : (N, 42)
         labels : (N, 42)
         '''
+        if self.ltype=='level':
+            labels = (labels>=2)
         predict = (x>self.THRESHOLDS)
         tp = labels[predict].sum()
         retrieved = predict.sum()

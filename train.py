@@ -100,8 +100,11 @@ def main(args):
     
     ## Define functions for training
     threshold=torch.full((len(label_filter),), 0.5)
-    criterion = get_criterion()
-    metric = get_metric(threshold=threshold)
+    criterion = get_criterion(args.loss)
+    if args.loss=='mse':
+        metric = get_metric(threshold=threshold, ltype='level')
+    else:
+        metric = get_metric(threshold=threshold)
     optimizer = get_optimizer(model, args.learning_rate)
     
     ## Train
@@ -132,27 +135,7 @@ def main(args):
     plt.plot(history['valid_score'])
     plt.savefig("results/score.png")
     
-    model.eval()
-    for thres_idx in tqdm(range(len(label_filter))):
-        maximum_score = 0
-        maximum_threshold = 0
-        for i in range(1,5):
-            metric = get_metric(torch.tensor([0.2*i]))
-            total_score = 0
-            for data, label in valloader:
-                data = data.to(DEVICE)
-                label = label.to(float).to(DEVICE)
-                
-                output = model(data)
-                
-                score = metric(output[:,i:i+1], label[:,i:i+1])
-                total_score += score.detach().item()
-            mean_score = total_score/len(valloader)
-            if mean_score > maximum_score:
-                maximum_threshold = 0.1*i
-                maximum_score = mean_score
-        threshold[thres_idx] = maximum_threshold
-    print(threshold)
+    
     
 
 def get_args():
@@ -160,6 +143,7 @@ def get_args():
     parser.add_argument('--train_dir', default='data')
     parser.add_argument('--valid_dir', default='data')
     parser.add_argument('--model', default='base')
+    parser.add_argument('--loss', default='bce')
     parser.add_argument('--epoch', default=5, type=int)
     parser.add_argument('--label_filter', '-lb', default='X')
     parser.add_argument('--batch_size', default=8, type=int)
