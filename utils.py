@@ -4,8 +4,10 @@ import torch.nn as nn
 from model import base_model, resnet2d_model
 
 def get_criterion():
-    return nn.BCEWithLogitsLoss()
+    return nn.BCELoss()
 
+def get_metric():
+    return None
     
 def get_optimizer(model, lr, method='adam'):
     if method == 'adam':
@@ -22,4 +24,14 @@ def get_model(model):
         return base_model()
     elif model=='resnet2d':
         return resnet2d_model()
+    
+    
+class F_score(nn.Module):
+    def __init__(self):
+        super().__init__()
         
+    def forward(self, x):
+        '''
+        x : (N, 42)
+        '''
+        return None
