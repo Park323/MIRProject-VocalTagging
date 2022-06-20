@@ -1,7 +1,8 @@
 import pdb
 import os
+import pickle
 import argparse
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 import torch
@@ -68,7 +69,6 @@ def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, tra
     return mean_loss, mean_score
 
 def main(args):
-
     ## Load Data
     TRAIN_DIR = args.train_dir
     VAL_DIR = args.valid_dir
@@ -88,7 +88,7 @@ def main(args):
                                'Thin', 'Thick', 'Mild/Soft', 'Bright', 'Charismatic',
                                'Embellishing', 'Breathy', 'Dynamic', 'Cute', 'Sad',
                                'Stable', 'Emotional', 'Warm', 'Relaxed', 'Dark']
-    
+                               
     label_filter = sets[args.label_filter]
     trainset = OurDataset(TRAIN_DIR, label_filter)
     valset = OurDataset(VAL_DIR, label_filter)
@@ -97,6 +97,8 @@ def main(args):
     
     ## Define Model
     model = get_model(args.model, len(label_filter)).to(DEVICE)
+    if args.model_pt:
+        model.load_state_dict(torch.load(args.model_pt))
     
     ## Define functions for training
     threshold=torch.full((len(label_filter),), 0.5)
@@ -127,15 +129,38 @@ def main(args):
             os.makedirs('results')
         torch.save(model.state_dict(), f"results/model_{epoch}.pt")
         
-    plt.plot(history['train_loss'])
-    plt.plot(history['valid_loss'])
-    plt.savefig("results/loss.png")
+    #plt.plot(history['train_loss'])
+    #plt.plot(history['valid_loss'])
+    #plt.savefig("results/loss.png")
     
-    plt.plot(history['train_score'])
-    plt.plot(history['valid_score'])
-    plt.savefig("results/score.png")
+    #plt.plot(history['train_score'])
+    #plt.plot(history['valid_score'])
+    #plt.savefig("results/score.png")
     
+    with open("results/history.pkl","wb") as f:
+        pickle.dump(history, f)
     
+    model.eval()
+    for thres_idx in tqdm(range(len(label_filter))):
+        maximum_score = 0
+        maximum_threshold = 0
+        for i in range(1,5):
+            metric = get_metric(torch.tensor([0.2*i]).to(DEVICE))
+            total_score = 0
+            for data, label in valloader:
+                data = data.to(DEVICE)
+                label = label.to(float).to(DEVICE)
+                
+                output = model(data)
+                
+                score = metric(output[:,i:i+1], label[:,i:i+1])
+                total_score += score.detach().item()
+            mean_score = total_score/len(valloader)
+            if mean_score > maximum_score:
+                maximum_threshold = 0.1*i
+                maximum_score = mean_score
+        threshold[thres_idx] = maximum_threshold
+    print(threshold)
     
 
 def get_args():
@@ -144,6 +169,7 @@ def get_args():
     parser.add_argument('--valid_dir', default='data')
     parser.add_argument('--model', default='base')
     parser.add_argument('--loss', default='bce')
+    parser.add_argument('--model_pt', default=None)
     parser.add_argument('--epoch', default=5, type=int)
     parser.add_argument('--label_filter', '-lb', default='X')
     parser.add_argument('--batch_size', default=8, type=int)
