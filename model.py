@@ -26,6 +26,33 @@ class base_model(nn.Module):
         output = self.fc(output.view(output.size(0),-1))
         return output
     
+    
+class drop_model(nn.Module):
+    '''
+    Base model from "Semantic Tagging of Singing Voices in Popular Music Recordings"
+    input : spectrogram
+    output : predicted tag distribution (one-hot encoded)
+    '''
+    def __init__(self, output_dim):
+        super().__init__()
+        self.conv_layers=nn.Sequential(
+            nn.Conv2d(1, 32, 3),
+            nn.MaxPool2d(3, 3, ceil_mode=True),
+            nn.Dropout2d(),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.MaxPool2d(3, 3, ceil_mode=True),
+            nn.Dropout2d(),
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.MaxPool2d(3, 3, ceil_mode=True),
+            nn.Dropout2d(),
+        )
+        self.fc = nn.Linear(5*4*128, output_dim)
+    
+    def forward(self, x):
+        output = self.conv_layers(x)
+        output = self.fc(output.view(output.size(0),-1))
+        return output
+
 
 # class resnet2d_model(nn.Module):
 #     '''

@@ -101,11 +101,12 @@ def main(args):
         model.load_state_dict(torch.load(args.model_pt))
     
     ## Define functions for training
-    threshold=torch.full((len(label_filter),), 0.5)
     criterion = get_criterion(args.loss)
     if args.loss=='mse':
+        threshold=torch.full((len(label_filter),), 2)
         metric = get_metric(threshold=threshold, ltype='level')
     else:
+        threshold=torch.full((len(label_filter),), 0.5)
         metric = get_metric(threshold=threshold)
     optimizer = get_optimizer(model, args.learning_rate)
     
@@ -139,28 +140,6 @@ def main(args):
     
     with open("results/history.pkl","wb") as f:
         pickle.dump(history, f)
-    
-    model.eval()
-    for thres_idx in tqdm(range(len(label_filter))):
-        maximum_score = 0
-        maximum_threshold = 0
-        for i in range(1,5):
-            metric = get_metric(torch.tensor([0.2*i]).to(DEVICE))
-            total_score = 0
-            for data, label in valloader:
-                data = data.to(DEVICE)
-                label = label.to(float).to(DEVICE)
-                
-                output = model(data)
-                
-                score = metric(output[:,i:i+1], label[:,i:i+1])
-                total_score += score.detach().item()
-            mean_score = total_score/len(valloader)
-            if mean_score > maximum_score:
-                maximum_threshold = 0.1*i
-                maximum_score = mean_score
-        threshold[thres_idx] = maximum_threshold
-    print(threshold)
     
 
 def get_args():
