@@ -51,7 +51,9 @@ class F_score(nn.Module):
         '''
         if self.ltype=='level':
             labels = (labels>=2)
-        predict = (x>self.THRESHOLDS)
+            predict = (x>=2)
+        else:
+            predict = (x>self.THRESHOLDS)
         tp = labels[predict].sum()
         retrieved = predict.sum()
         relevant = labels.sum()
