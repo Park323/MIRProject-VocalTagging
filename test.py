@@ -1,7 +1,6 @@
 import pdb
 import os
 import argparse
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 import torch
@@ -57,11 +56,12 @@ def test(model, dataloader, criterion, metric):
             
             batch_idx += 1
         
-    return mean_loss, mean_score
+    return mean_loss/batch_idx, mean_score/batch_idx
 
 def main(args):
-
+    print(1)
     ## Load Data
+    VAL_DIR = args.valid_dir
     TEST_DIR = args.test_dir
     
     sets = {}
@@ -79,51 +79,59 @@ def main(args):
                                'Thin', 'Thick', 'Mild/Soft', 'Bright', 'Charismatic',
                                'Embellishing', 'Breathy', 'Dynamic', 'Cute', 'Sad',
                                'Stable', 'Emotional', 'Warm', 'Relaxed', 'Dark']
-    
+    print(2)
     label_filter = sets[args.label_filter]
+    valset = OurDataset(VAL_DIR, label_filter)
+    valloader = DataLoader(valset, batch_size=args.batch_size)
     testset = OurDataset(TEST_DIR, label_filter)
     testloader = DataLoader(testset, batch_size=args.batch_size)
-    
+    print(3)
     ## Define Model
     model = get_model(args.model, len(label_filter)).to(DEVICE)
     model.load_state_dict(torch.load(args.pt))
-    
-    ## Define functions for training
-    threshold=torch.full((len(label_filter),), 0.5)
+    print(4)
     
     criterion = get_criterion()
-    metric = get_metric(threshold=threshold)
     
+    threshold=torch.zeros((len(label_filter),)).to(DEVICE)
+    
+    max_scores = []
     model.eval()
     for thres_idx in tqdm(range(len(label_filter))):
         maximum_score = 0
         maximum_threshold = 0
         for i in range(1,5):
-            metric = get_metric(torch.tensor([0.2*i]))
+            metric = get_metric(torch.tensor([0.2*i]).to(DEVICE))
             total_score = 0
-            for data, label in testloader:
+            for data, label in valloader:
                 data = data.to(DEVICE)
                 label = label.to(float).to(DEVICE)
                 
                 output = model(data)
                 
-                score = metric(output[:,i:i+1], label[:,i:i+1])
+                score = metric(output[:,thres_idx:thres_idx+1], label[:,thres_idx:thres_idx+1])
                 total_score += score.detach().item()
-            mean_score = total_score/len(testloader)
+            mean_score = total_score/len(valloader)
             if mean_score > maximum_score:
-                maximum_threshold = 0.1*i
+                maximum_threshold = 0.2*i
                 maximum_score = mean_score
         threshold[thres_idx] = maximum_threshold
         print(maximum_threshold, maximum_score)
+        max_scores.append(maximum_score)
+    print(maximum_score)
     
     metric = get_metric(threshold)
     ## Test
+    loss, score = test(model, valloader, criterion, metric)
+    print(loss, score)
+    
     loss, score = test(model, testloader, criterion, metric)
     print(loss, score)
     
 
 def get_args():
     parser = argparse.ArgumentParser(description="configure train")
+    parser.add_argument('--valid_dir', default='data')
     parser.add_argument('--test_dir', default='data')
     parser.add_argument('--pt')
     parser.add_argument('--model', default='base')

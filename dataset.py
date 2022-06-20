@@ -97,6 +97,8 @@ class OurDataset:
 
     def __getitem__(self, idx):
         audio, label = torch.load(self.files[idx])
+        if isinstance(label, dict):
+            label = torch.tensor(list(label.values()))
         label = label[self.filter]
         return audio, label  # mel_spectrogram, label
 
