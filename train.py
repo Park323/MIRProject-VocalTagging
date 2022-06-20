@@ -73,23 +73,33 @@ def main(args):
     TRAIN_DIR = args.train_dir
     VAL_DIR = args.valid_dir
     
-    setA = ['Rounded', 'Pretty', 'Delicate', 'Sharp', 'Passion', 
+    sets = {}
+    sets['X'] = ['Sad', 'Thick', 'Warm', 'Clear', 'Dynamic', 'Energetic', 'Speech-Like', 'Sharp', 'Falsetto', 'Robotic/Artificial', 
+                'Whisper/Quiet', 'Delicate', 'Passion', 'Emotional', 'Mid-Range', 
+                'High-Range', 'Compressed', 'Sweet', 'Soulful/R&B', 'Stable', 
+                'Rounded', 'Thin', 'Mild/Soft', 'Breathy', 'Pretty', 
+                'Young', 'Dark', 'Husky/Throaty', 'Bright', 'Vibrato', 
+                'Pure', 'Male', ' Ballad', 'Rich', 'Low-Range', 
+                'Shouty', 'Cute', 'Relaxed', 'Female', 'Charismatic', 
+                'Lonely', 'Embellishing']
+    sets['A'] = ['Rounded', 'Pretty', 'Delicate', 'Sharp', 'Passion', 
                                'Lonely', 'Compressed', 'Pure', 'Sweet', 'Husky/Throaty', 
                                'Rich', 'Energetic', 'Young', 'Robotic/Artificial', 'Clear', 
                                'Thin', 'Thick', 'Mild/Soft', 'Bright', 'Charismatic',
                                'Embellishing', 'Breathy', 'Dynamic', 'Cute', 'Sad',
                                'Stable', 'Emotional', 'Warm', 'Relaxed', 'Dark']
     
-    trainset = OurDataset(TRAIN_DIR, setA)
-    valset = OurDataset(VAL_DIR, setA)
+    label_filter = sets[args.label_filter]
+    trainset = OurDataset(TRAIN_DIR, label_filter)
+    valset = OurDataset(VAL_DIR, label_filter)
     trainloader = DataLoader(trainset, batch_size=args.batch_size)
     valloader = DataLoader(valset, batch_size=args.batch_size)
     
     ## Define Model
-    model = get_model(args.model, len(setA)).to(DEVICE)
+    model = get_model(args.model, len(label_filter)).to(DEVICE)
     
     ## Define functions for training
-    threshold=torch.full((len(setA),), 0.5)
+    threshold=torch.full((len(label_filter),), 0.5)
     criterion = get_criterion()
     metric = get_metric(threshold=threshold)
     optimizer = get_optimizer(model, args.learning_rate)
@@ -123,7 +133,7 @@ def main(args):
     plt.savefig("results/score.png")
     
     model.eval()
-    for thres_idx in tqdm(range(len(setA))):
+    for thres_idx in tqdm(range(len(label_filter))):
         maximum_score = 0
         maximum_threshold = 0
         for i in range(1,5):
@@ -143,7 +153,6 @@ def main(args):
                 maximum_score = mean_score
         threshold[thres_idx] = maximum_threshold
     print(threshold)
-        
     
 
 def get_args():
@@ -152,6 +161,7 @@ def get_args():
     parser.add_argument('--valid_dir', default='data')
     parser.add_argument('--model', default='base')
     parser.add_argument('--epoch', default=5, type=int)
+    parser.add_argument('--label_filter', '-lb', default='X')
     parser.add_argument('--batch_size', default=8, type=int)
     parser.add_argument('--learning_rate', default=0.0001, type=float)
     args = parser.parse_args()
