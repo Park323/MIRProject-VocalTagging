@@ -9,7 +9,7 @@ import torchaudio
 import pandas as pd
 
 
-def get_mel_spectrogram(file_path, save_dir, SR = 22050):
+def get_mel_spectrogram(file_path, SR = 22050):
     audio, sr = torchaudio.load(file_path)
     audio = audio.mean(dim=0)
     audio = torchaudio.transforms.Resample(orig_freq=sr, new_freq=SR)(audio)
@@ -43,7 +43,7 @@ def preprocess(root_dir, aud_file, label_file, save_dir, threshold = 2, SR = 220
     
     for file, label in zip(files, labels):
         aud_path = root_dir + '/' + file
-        mel_spec = get_mel_spectrogram(aud_path, save_dir, SR)
+        mel_spec = get_mel_spectrogram(aud_path, SR)
         
         label = torch.tensor(list(label.values()))
         label = (label >= threshold).to(int)
