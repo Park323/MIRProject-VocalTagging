@@ -94,6 +94,29 @@ def main(args):
     criterion = get_criterion()
     metric = get_metric(threshold=threshold)
     
+    model.eval()
+    for thres_idx in tqdm(range(len(label_filter))):
+        maximum_score = 0
+        maximum_threshold = 0
+        for i in range(1,5):
+            metric = get_metric(torch.tensor([0.2*i]))
+            total_score = 0
+            for data, label in testloader:
+                data = data.to(DEVICE)
+                label = label.to(float).to(DEVICE)
+                
+                output = model(data)
+                
+                score = metric(output[:,i:i+1], label[:,i:i+1])
+                total_score += score.detach().item()
+            mean_score = total_score/len(testloader)
+            if mean_score > maximum_score:
+                maximum_threshold = 0.1*i
+                maximum_score = mean_score
+        threshold[thres_idx] = maximum_threshold
+        print(maximum_threshold, maximum_score)
+    
+    metric = get_metric(threshold)
     ## Test
     loss, score = test(model, testloader, criterion, metric)
     print(loss, score)
