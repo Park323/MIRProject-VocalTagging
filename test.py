@@ -17,9 +17,9 @@ from utils import *
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
-def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, train=True):
+def test(model, dataloader, criterion, metric):
     '''
-    Train model with data
+    Test model with data
     
     (input)
     model : model to train
@@ -27,86 +27,85 @@ def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, tra
     criterion : loss function
     optimizer : optimizer
     history : history dictionary for record loss & metrics
-    train : check the process is for train or validation
     
     (output)
     None
     '''
-    if train: model.train()
-    else: model.eval()
+    model.eval()
     
     batch_idx = 1
     mean_loss = 0.
-    
-    process = tqdm(dataloader)
-    for data, label in process:
-        data = data.to(DEVICE)
-        label = label.to(float).to(DEVICE)
-        
-        optimizer.zero_grad()
-        
-        output = model(data)
-        
-        loss = criterion(output, label)
-        
-        if train:
-            loss.backward()
-            optimizer.step()
+    mean_score = 0.
+
+    with torch.no_grad():        
+        process = tqdm(dataloader)
+        for data, label in process:
+            data = data.to(DEVICE)
+            label = label.to(float).to(DEVICE)
             
-            history['train_loss'].append(loss.detach().item())
-        else:
-            history['valid_loss'].append(loss.detach().item())
+            output = model(data)
+            
+            # output : (B, C)
+            # label : (B, C)
+            loss = criterion(output, label)
+            score = metric(output, label)
+            
+            mean_loss += loss.detach().item()
+            mean_score += score.detach().item()
+            
+            process.set_description(f"LOSS  : {loss:.4f}, MEAN LOSS : {mean_loss/batch_idx:.4f}, F-score  : {score:.4f}, MEAN score : {mean_score/batch_idx:.4f}")
+            
+            batch_idx += 1
         
-        mean_loss += loss.item()
-        
-        process.set_description(f"EPOCH : {epoch}, LOSS  : {loss:.4f}, MEAN LOSS : {mean_loss/batch_idx:.4f}")
-        
-        batch_idx += 1
+    return mean_loss, mean_score
 
 def main(args):
 
     ## Load Data
-    TRAIN_DIR = args.train_dir
-    VAL_DIR = args.valid_dir
+    TEST_DIR = args.test_dir
     
-    trainset = OurDataset(TRAIN_DIR)
-    valset = OurDataset(VAL_DIR)
-    trainloader = DataLoader(trainset, batch_size=args.batch_size)
-    valloader = DataLoader(valset, batch_size=args.batch_size)
+    sets = {}
+    sets['X'] = ['Sad', 'Thick', 'Warm', 'Clear', 'Dynamic', 'Energetic', 'Speech-Like', 'Sharp', 'Falsetto', 'Robotic/Artificial', 
+                'Whisper/Quiet', 'Delicate', 'Passion', 'Emotional', 'Mid-Range', 
+                'High-Range', 'Compressed', 'Sweet', 'Soulful/R&B', 'Stable', 
+                'Rounded', 'Thin', 'Mild/Soft', 'Breathy', 'Pretty', 
+                'Young', 'Dark', 'Husky/Throaty', 'Bright', 'Vibrato', 
+                'Pure', 'Male', ' Ballad', 'Rich', 'Low-Range', 
+                'Shouty', 'Cute', 'Relaxed', 'Female', 'Charismatic', 
+                'Lonely', 'Embellishing']
+    sets['A'] = ['Rounded', 'Pretty', 'Delicate', 'Sharp', 'Passion', 
+                               'Lonely', 'Compressed', 'Pure', 'Sweet', 'Husky/Throaty', 
+                               'Rich', 'Energetic', 'Young', 'Robotic/Artificial', 'Clear', 
+                               'Thin', 'Thick', 'Mild/Soft', 'Bright', 'Charismatic',
+                               'Embellishing', 'Breathy', 'Dynamic', 'Cute', 'Sad',
+                               'Stable', 'Emotional', 'Warm', 'Relaxed', 'Dark']
+    
+    label_filter = sets[args.label_filter]
+    testset = OurDataset(TEST_DIR, label_filter)
+    testloader = DataLoader(testset, batch_size=args.batch_size)
     
     ## Define Model
-    model = get_model(args.model).to(DEVICE)
+    model = get_model(args.model, len(label_filter)).to(DEVICE)
+    model.load_state_dict(torch.load(args.pt))
     
     ## Define functions for training
-    criterion = get_criterion()
-    metric = get_metric()
-    optimizer = get_optimizer(model, args.learning_rate)
+    threshold=torch.full((len(label_filter),), 0.5)
     
-    ## Train
-    history = {'train_loss':[], 
-               'valid_loss':[]}
-    for epoch in range(args.epoch):
-        train(model, trainloader, criterion, metric, optimizer, history, epoch=epoch, train=True)
-        train(model, valloader, criterion, metric, optimizer, history, epoch=epoch, train=False)
-        
-        if not os.path.exists('results'):
-            os.makedirs('results')
-        torch.save(model.state_dict(), f"results/model_{epoch}.pt")
-            
-    plt.plot(history['train_loss'])
-    plt.plot(history['valid_loss'])
-    plt.savefig("results/tr_graph.png")
-        
+    criterion = get_criterion()
+    metric = get_metric(threshold=threshold)
+    
+    ## Test
+    loss, score = test(model, testloader, criterion, metric)
+    print(loss, score)
     
 
 def get_args():
     parser = argparse.ArgumentParser(description="configure train")
-    parser.add_argument('--train_dir', default='data')
-    parser.add_argument('--valid_dir', default='data')
+    parser.add_argument('--test_dir', default='data')
+    parser.add_argument('--pt')
     parser.add_argument('--model', default='base')
-    parser.add_argument('--epoch', default=5, type=int)
+    parser.add_argument('--label_filter', '-lb', default='X')
     parser.add_argument('--batch_size', default=8, type=int)
-    parser.add_argument('--learning_rate', default=0.0001, type=float)
     args = parser.parse_args()
     return args
 
