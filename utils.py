@@ -9,10 +9,10 @@ def get_criterion(method='bce'):
         return nn.BCEWithLogitsLoss()
     elif method=='mse':
         mse = nn.MSELoss()
-        return lambda x, y: mse(torch.sigmoid(x.to(float)), y)
+        return lambda x, y: mse(x.to(float), y)
 
-def get_metric(threshold=None):
-    return F_score(threshold)
+def get_metric(threshold=None,ltype=None):
+    return F_score(threshold=threshold, ltype=ltype)
     
 def get_optimizer(model, lr, method='adam'):
     if method == 'adam':
