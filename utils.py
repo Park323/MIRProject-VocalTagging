@@ -4,9 +4,9 @@ import torch.nn.functional as F
 
 from model import base_model, drop_model #, resnet2d_model
 
-def get_criterion(method='bce'):
+def get_criterion(method='bce', pos_weight=None):
     if method=='bce':
-        return nn.BCEWithLogitsLoss()
+        return nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     elif method=='mse':
         mse = nn.MSELoss()
         return lambda x, y: mse(x.to(float), y)
