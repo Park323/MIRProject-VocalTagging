@@ -1,5 +1,6 @@
 import os
 import glob
+import tqdm
 import pickle
 from pathlib import Path
 
@@ -51,19 +52,52 @@ def preprocess(root_dir, aud_file, label_file, save_dir, threshold = 2, SR = 220
         for i in range(4):
             data = (mel_spec[:,:,107*i:107*(i+1)], label)
             torch.save(data, f"{save_dir}/{file}_{i}.pt")
-
+            
+            
+def preprocess2(root_dir, aud_file, label_file, save_dir, threshold = 2, SR = 22050):
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    
+    pts = os.listdir(root_dir)
+    
+    files = pickle.load(open(aud_file, 'rb'))
+    labels = pickle.load(open(label_file, 'rb'))
+    
+    file2label = {file:label for file, label in zip(files, labels)}
+    
+    for pt in tqdm.tqdm(pts):
+        path = root_dir + '/' + pt
+        y, l = torch.load(open(path, 'rb'))
+        pt = pt[:-5]
+        label = file2label[pt]
+        
+        for i in range(4):
+            data = (y, label)
+            torch.save(data, f"{save_dir}/{pt}_{i}.pt")
 
 
 class OurDataset:
+    label = ['Sad', 'Thick', 'Warm', 'Clear', 'Dynamic', 'Energetic', 'Speech-Like', 'Sharp', 'Falsetto', 'Robotic/Artificial', 
+             'Whisper/Quiet', 'Delicate', 'Passion', 'Emotional', 'Mid-Range', 
+             'High-Range', 'Compressed', 'Sweet', 'Soulful/R&B', 'Stable', 
+             'Rounded', 'Thin', 'Mild/Soft', 'Breathy', 'Pretty', 
+             'Young', 'Dark', 'Husky/Throaty', 'Bright', 'Vibrato', 
+             'Pure', 'Male', ' Ballad', 'Rich', 'Low-Range', 
+             'Shouty', 'Cute', 'Relaxed', 'Female', 'Charismatic', 
+             'Lonely', 'Embellishing']
     
-    def __init__(self, root_dir):
+    def __init__(self, root_dir, chosen_labels):
         self.files = glob.glob(f"{root_dir}/*.pt")
+        self.chosen_labels = chosen_labels
+        self.filter = [(label in self.chosen_labels) for label in OurDataset.label]
+        self.filter = torch.tensor(self.filter)
 
     def __len__(self):
         return len(self.files)
 
     def __getitem__(self, idx):
         audio, label = torch.load(self.files[idx])
+        label = label[self.filter]
         return audio, label  # mel_spectrogram, label
 
 

@@ -37,6 +37,7 @@ def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, tra
     
     batch_idx = 1
     mean_loss = 0.
+    mean_score = 0.
     
     process = tqdm(dataloader)
     for data, label in process:
@@ -47,21 +48,24 @@ def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, tra
         
         output = model(data)
         
+        # output : (B, C)
+        # label : (B, C)
         loss = criterion(output, label)
+        with torch.no_grad():
+            score = metric(output, label)
         
         if train:
             loss.backward()
             optimizer.step()
-            
-            history['train_loss'].append(loss.detach().item())
-        else:
-            history['valid_loss'].append(loss.detach().item())
         
-        mean_loss += loss.item()
+        mean_loss += loss.detach().item()
+        mean_score += score.detach().item()
         
-        process.set_description(f"EPOCH : {epoch}, LOSS  : {loss:.4f}, MEAN LOSS : {mean_loss/batch_idx:.4f}")
+        process.set_description(f"EPOCH : {epoch}, LOSS  : {loss:.4f}, MEAN LOSS : {mean_loss/batch_idx:.4f}, F-score  : {score:.4f}, MEAN score : {mean_score/batch_idx:.4f}")
         
         batch_idx += 1
+        
+    return mean_loss, mean_score
 
 def main(args):
 
@@ -69,33 +73,76 @@ def main(args):
     TRAIN_DIR = args.train_dir
     VAL_DIR = args.valid_dir
     
-    trainset = OurDataset(TRAIN_DIR)
-    valset = OurDataset(VAL_DIR)
+    setA = ['Rounded', 'Pretty', 'Delicate', 'Sharp', 'Passion', 
+                               'Lonely', 'Compressed', 'Pure', 'Sweet', 'Husky/Throaty', 
+                               'Rich', 'Energetic', 'Young', 'Robotic/Artificial', 'Clear', 
+                               'Thin', 'Thick', 'Mild/Soft', 'Bright', 'Charismatic',
+                               'Embellishing', 'Breathy', 'Dynamic', 'Cute', 'Sad',
+                               'Stable', 'Emotional', 'Warm', 'Relaxed', 'Dark']
+    
+    trainset = OurDataset(TRAIN_DIR, setA)
+    valset = OurDataset(VAL_DIR, setA)
     trainloader = DataLoader(trainset, batch_size=args.batch_size)
     valloader = DataLoader(valset, batch_size=args.batch_size)
     
     ## Define Model
-    model = base_model().to(DEVICE)
+    model = get_model(args.model, len(setA)).to(DEVICE)
     
     ## Define functions for training
+    threshold=torch.full((len(setA),), 0.5)
     criterion = get_criterion()
-    metric = get_metric()
+    metric = get_metric(threshold=threshold)
     optimizer = get_optimizer(model, args.learning_rate)
     
     ## Train
-    history = {'train_loss':[], 
-               'valid_loss':[]}
+    history = {'train_loss':[],
+               'train_score':[],
+               'valid_loss':[],
+               'valid_score':[]}
     for epoch in range(args.epoch):
-        train(model, trainloader, criterion, metric, optimizer, history, epoch=epoch, train=True)
-        train(model, valloader, criterion, metric, optimizer, history, epoch=epoch, train=False)
+        print("Train")
+        tr_loss, tr_score = train(model, trainloader, criterion, metric, optimizer, history, epoch=epoch, train=True)
+        print("Valid")
+        vl_loss, vl_score = train(model, valloader, criterion, metric, optimizer, history, epoch=epoch, train=False)
+        
+        history['train_loss'].append(tr_loss)
+        history['train_score'].append(tr_score)
+        history['valid_loss'].append(vl_loss)
+        history['valid_score'].append(vl_score)
         
         if not os.path.exists('results'):
             os.makedirs('results')
         torch.save(model.state_dict(), f"results/model_{epoch}.pt")
-            
+        
     plt.plot(history['train_loss'])
     plt.plot(history['valid_loss'])
-    plt.savefig("results/tr_graph.png")
+    plt.savefig("results/loss.png")
+    
+    plt.plot(history['train_score'])
+    plt.plot(history['valid_score'])
+    plt.savefig("results/score.png")
+    
+    model.eval()
+    for thres_idx in tqdm(range(len(setA))):
+        maximum_score = 0
+        maximum_threshold = 0
+        for i in range(1,5):
+            metric = get_metric(torch.tensor([0.2*i]))
+            total_score = 0
+            for data, label in valloader:
+                data = data.to(DEVICE)
+                label = label.to(float).to(DEVICE)
+                
+                output = model(data)
+                
+                score = metric(output[:,i:i+1], label[:,i:i+1])
+                total_score += score.detach().item()
+            mean_score = total_score/len(valloader)
+            if mean_score > maximum_score:
+                maximum_threshold = 0.1*i
+                maximum_score = mean_score
+        threshold[thres_idx] = maximum_threshold
+    print(threshold)
         
     
 
