@@ -64,6 +64,15 @@ def main(args):
     VAL_DIR = args.valid_dir
     TEST_DIR = args.test_dir
     
+    entire_label = ['Sad', 'Thick', 'Warm', 'Clear', 'Dynamic', 'Energetic', 'Speech-Like', 'Sharp', 'Falsetto', 'Robotic/Artificial', 
+                     'Whisper/Quiet', 'Delicate', 'Passion', 'Emotional', 'Mid-Range', 
+                     'High-Range', 'Compressed', 'Sweet', 'Soulful/R&B', 'Stable', 
+                     'Rounded', 'Thin', 'Mild/Soft', 'Breathy', 'Pretty', 
+                     'Young', 'Dark', 'Husky/Throaty', 'Bright', 'Vibrato', 
+                     'Pure', 'Male', ' Ballad', 'Rich', 'Low-Range', 
+                     'Shouty', 'Cute', 'Relaxed', 'Female', 'Charismatic', 
+                     'Lonely', 'Embellishing']
+                     
     sets = {}
     sets['X'] = ['Sad', 'Thick', 'Warm', 'Clear', 'Dynamic', 'Energetic', 'Speech-Like', 'Sharp', 'Falsetto', 'Robotic/Artificial', 
                 'Whisper/Quiet', 'Delicate', 'Passion', 'Emotional', 'Mid-Range', 
@@ -74,34 +83,48 @@ def main(args):
                 'Shouty', 'Cute', 'Relaxed', 'Female', 'Charismatic', 
                 'Lonely', 'Embellishing']
     sets['A'] = ['Rounded', 'Pretty', 'Delicate', 'Sharp', 'Passion', 
-                               'Lonely', 'Compressed', 'Pure', 'Sweet', 'Husky/Throaty', 
-                               'Rich', 'Energetic', 'Young', 'Robotic/Artificial', 'Clear', 
-                               'Thin', 'Thick', 'Mild/Soft', 'Bright', 'Charismatic',
-                               'Embellishing', 'Breathy', 'Dynamic', 'Cute', 'Sad',
-                               'Stable', 'Emotional', 'Warm', 'Relaxed', 'Dark']
+                 'Lonely', 'Compressed', 'Pure', 'Sweet', 'Husky/Throaty', 
+                 'Rich', 'Energetic', 'Young', 'Robotic/Artificial', 'Clear', 
+                 'Thin', 'Thick', 'Mild/Soft', 'Bright', 'Charismatic',
+                 'Embellishing', 'Breathy', 'Dynamic', 'Cute', 'Sad',
+                 'Stable', 'Emotional', 'Warm', 'Relaxed', 'Dark']
+    # Technique & Low-level Timbre
+    sets['B'] = ['Male', 'Female', 'Whisper/Quiet', 'Shouty', 'Vibrato', 
+                 'Falsetto', 'Speech-like', 'Compressed', 'Husky/Throaty', 'Thick', 
+                 'Thin', 'Sharp', 'Breathy', 'Stable']
+    # High level Timbre
+    sets['C'] = ['Lonely', 'Sad', 'Passion','Charismatic','Pretty',
+                'Cute','Delicate','Emotional','Pure','Robotics/Artificial',
+                'Embellishing','Sweet','Young','Compressed','Dynamic']
+    
     print(2)
-    label_filter = sets[args.label_filter]
+    label_filter = [(label in sets[args.label_filter]) for label in entire_label]
+    label_filter = torch.tensor(label_filter)
     valset = OurDataset(VAL_DIR, label_filter)
     valloader = DataLoader(valset, batch_size=args.batch_size)
     testset = OurDataset(TEST_DIR, label_filter)
     testloader = DataLoader(testset, batch_size=args.batch_size)
     print(3)
+    n_class = int(label_filter.sum())
+    
     ## Define Model
-    model = get_model(args.model, len(label_filter)).to(DEVICE)
+    model = get_model(args.model, n_class).to(DEVICE)
     model.load_state_dict(torch.load(args.pt))
     print(4)
     
-    criterion = get_criterion()
+    criterion = get_criterion(args.loss)
     
-    threshold=torch.zeros((len(label_filter),)).to(DEVICE)
+    threshold=torch.zeros((n_class,)).to(DEVICE)
+    ltype = 'level' if args.loss=='mse' else 'binary'
     
+    unit = 0.6 if args.loss=='mse' else 0.2
     max_scores = []
     model.eval()
-    for thres_idx in tqdm(range(len(label_filter))):
+    for thres_idx in tqdm(range(n_class)):
         maximum_score = 0
         maximum_threshold = 0
         for i in range(1,5):
-            metric = get_metric(torch.tensor([0.2*i]).to(DEVICE))
+            metric = get_metric(torch.tensor([unit*i]).to(DEVICE))
             total_score = 0
             for data, label in valloader:
                 data = data.to(DEVICE)
@@ -113,14 +136,14 @@ def main(args):
                 total_score += score.detach().item()
             mean_score = total_score/len(valloader)
             if mean_score > maximum_score:
-                maximum_threshold = 0.2*i
+                maximum_threshold = unit*i
                 maximum_score = mean_score
         threshold[thres_idx] = maximum_threshold
         print(maximum_threshold, maximum_score)
         max_scores.append(maximum_score)
-    print(maximum_score)
     
-    metric = get_metric(threshold)
+    metric = get_metric(threshold=threshold, ltype=ltype)
+    
     ## Test
     loss, score = test(model, valloader, criterion, metric)
     print(loss, score)
@@ -128,12 +151,18 @@ def main(args):
     loss, score = test(model, testloader, criterion, metric)
     print(loss, score)
     
+    print(max_scores)
+    print(threshold)
+    
+    torch.save(threshold, f"{(args.pt).replace('.pt','_threshold.pt')}")
+    
 
 def get_args():
     parser = argparse.ArgumentParser(description="configure train")
     parser.add_argument('--valid_dir', default='data')
     parser.add_argument('--test_dir', default='data')
     parser.add_argument('--pt')
+    parser.add_argument('--loss', default='bce')
     parser.add_argument('--model', default='base')
     parser.add_argument('--label_filter', '-lb', default='X')
     parser.add_argument('--batch_size', default=8, type=int)

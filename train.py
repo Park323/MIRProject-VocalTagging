@@ -73,6 +73,15 @@ def main(args):
     TRAIN_DIR = args.train_dir
     VAL_DIR = args.valid_dir
     
+    entire_label = ['Sad', 'Thick', 'Warm', 'Clear', 'Dynamic', 'Energetic', 'Speech-Like', 'Sharp', 'Falsetto', 'Robotic/Artificial', 
+                     'Whisper/Quiet', 'Delicate', 'Passion', 'Emotional', 'Mid-Range', 
+                     'High-Range', 'Compressed', 'Sweet', 'Soulful/R&B', 'Stable', 
+                     'Rounded', 'Thin', 'Mild/Soft', 'Breathy', 'Pretty', 
+                     'Young', 'Dark', 'Husky/Throaty', 'Bright', 'Vibrato', 
+                     'Pure', 'Male', ' Ballad', 'Rich', 'Low-Range', 
+                     'Shouty', 'Cute', 'Relaxed', 'Female', 'Charismatic', 
+                     'Lonely', 'Embellishing']
+             
     sets = {}
     sets['X'] = ['Sad', 'Thick', 'Warm', 'Clear', 'Dynamic', 'Energetic', 'Speech-Like', 'Sharp', 'Falsetto', 'Robotic/Artificial', 
                 'Whisper/Quiet', 'Delicate', 'Passion', 'Emotional', 'Mid-Range', 
@@ -83,30 +92,41 @@ def main(args):
                 'Shouty', 'Cute', 'Relaxed', 'Female', 'Charismatic', 
                 'Lonely', 'Embellishing']
     sets['A'] = ['Rounded', 'Pretty', 'Delicate', 'Sharp', 'Passion', 
-                               'Lonely', 'Compressed', 'Pure', 'Sweet', 'Husky/Throaty', 
-                               'Rich', 'Energetic', 'Young', 'Robotic/Artificial', 'Clear', 
-                               'Thin', 'Thick', 'Mild/Soft', 'Bright', 'Charismatic',
-                               'Embellishing', 'Breathy', 'Dynamic', 'Cute', 'Sad',
-                               'Stable', 'Emotional', 'Warm', 'Relaxed', 'Dark']
-                               
-    label_filter = sets[args.label_filter]
+                 'Lonely', 'Compressed', 'Pure', 'Sweet', 'Husky/Throaty', 
+                 'Rich', 'Energetic', 'Young', 'Robotic/Artificial', 'Clear', 
+                 'Thin', 'Thick', 'Mild/Soft', 'Bright', 'Charismatic',
+                 'Embellishing', 'Breathy', 'Dynamic', 'Cute', 'Sad',
+                 'Stable', 'Emotional', 'Warm', 'Relaxed', 'Dark']
+    # Technique & Low-level Timbre
+    sets['B'] = ['Male', 'Female', 'Whisper/Quiet', 'Shouty', 'Vibrato', 
+                 'Falsetto', 'Speech-like', 'Compressed', 'Husky/Throaty', 'Thick', 
+                 'Thin', 'Sharp', 'Breathy', 'Stable']
+    # High level Timbre
+    sets['C'] = ['Lonely', 'Sad', 'Passion','Charismatic','Pretty',
+                'Cute','Delicate','Emotional','Pure','Robotics/Artificial',
+                'Embellishing','Sweet','Young','Compressed','Dynamic']
+    
+    label_filter = [(label in sets[args.label_filter]) for label in entire_label]
+    label_filter = torch.tensor(label_filter)
     trainset = OurDataset(TRAIN_DIR, label_filter)
     valset = OurDataset(VAL_DIR, label_filter)
     trainloader = DataLoader(trainset, batch_size=args.batch_size)
     valloader = DataLoader(valset, batch_size=args.batch_size)
     
+    n_class = int(label_filter.sum())
     ## Define Model
-    model = get_model(args.model, len(label_filter)).to(DEVICE)
+    model = get_model(args.model, n_class).to(DEVICE)
     if args.model_pt:
         model.load_state_dict(torch.load(args.model_pt))
     
+    pos_weight = get_weight(label_filter).to(DEVICE)
     ## Define functions for training
-    criterion = get_criterion(args.loss)
+    criterion = get_criterion(args.loss, pos_weight)
     if args.loss=='mse':
-        threshold=torch.full((len(label_filter),), 2)
+        threshold=torch.full((n_class,), 2).to(DEVICE)
         metric = get_metric(threshold=threshold, ltype='level')
     else:
-        threshold=torch.full((len(label_filter),), 0.5)
+        threshold=torch.full((n_class,), 0.5).to(DEVICE)
         metric = get_metric(threshold=threshold)
     optimizer = get_optimizer(model, args.learning_rate)
     
@@ -140,6 +160,20 @@ def main(args):
     
     with open("results/history.pkl","wb") as f:
         pickle.dump(history, f)
+    
+    
+def get_weight(filters):
+    with open('nums.txt') as f:
+        labels = f.readlines()
+    
+    weights = torch.zeros(42)
+    
+    for i, label in enumerate(labels):
+        label, ratio = label.split()
+        ratio = float(ratio)
+        weights[i] = (1-ratio)/ratio
+        
+    return weights[filters]
     
 
 def get_args():

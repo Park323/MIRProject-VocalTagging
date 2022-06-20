@@ -1,4 +1,5 @@
 import os
+import pdb
 import glob
 import tqdm
 import pickle
@@ -77,20 +78,9 @@ def preprocess2(root_dir, aud_file, label_file, save_dir, threshold = 2, SR = 22
 
 
 class OurDataset:
-    label = ['Sad', 'Thick', 'Warm', 'Clear', 'Dynamic', 'Energetic', 'Speech-Like', 'Sharp', 'Falsetto', 'Robotic/Artificial', 
-             'Whisper/Quiet', 'Delicate', 'Passion', 'Emotional', 'Mid-Range', 
-             'High-Range', 'Compressed', 'Sweet', 'Soulful/R&B', 'Stable', 
-             'Rounded', 'Thin', 'Mild/Soft', 'Breathy', 'Pretty', 
-             'Young', 'Dark', 'Husky/Throaty', 'Bright', 'Vibrato', 
-             'Pure', 'Male', ' Ballad', 'Rich', 'Low-Range', 
-             'Shouty', 'Cute', 'Relaxed', 'Female', 'Charismatic', 
-             'Lonely', 'Embellishing']
-    
-    def __init__(self, root_dir, chosen_labels):
+    def __init__(self, root_dir, label_filter):
         self.files = glob.glob(f"{root_dir}/*.pt")
-        self.chosen_labels = chosen_labels
-        self.filter = [(label in self.chosen_labels) for label in OurDataset.label]
-        self.filter = torch.tensor(self.filter)
+        self.label_filter = label_filter
 
     def __len__(self):
         return len(self.files)
@@ -99,7 +89,7 @@ class OurDataset:
         audio, label = torch.load(self.files[idx])
         if isinstance(label, dict):
             label = torch.tensor(list(label.values()))
-        label = label[self.filter]
+        label = label[self.label_filter]
         return audio, label  # mel_spectrogram, label
 
 
