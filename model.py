@@ -61,7 +61,7 @@ class ResidualCell2d(nn.Module):
             self.shortcut = nn.Identity(stride=2)
             stride = 1
         else:
-            self.shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2)
+            self.shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=3)
             stride = 3
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels,out_channels,kernel_size, stride=stride, padding=(kernel_size-1)//2),
@@ -88,17 +88,20 @@ class resnet_model(nn.Module):
         self.conv_layers=nn.Sequential(
             ResidualCell2d(1, 32, 3),
             nn.ReLU(),
+            nn.Dropout2d(),
             ResidualCell2d(32, 32, 3),
             nn.ReLU(),
             nn.Dropout2d(),
             ResidualCell2d(32, 64, 3, False),
             nn.ReLU(),
+            nn.Dropout2d(),
             ResidualCell2d(64, 64, 3),
             nn.ReLU(),
             nn.Dropout2d(),
             ResidualCell2d(64, 128, 3, False),
             nn.ReLU(),
-            ResidualCell2d(128, 128, 3),
+            nn.Dropout2d(),
+            ResidualCell2d(128, 128, 3, False),
             nn.ReLU(),
             nn.Dropout2d(),
         )
