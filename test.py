@@ -115,7 +115,6 @@ def main(args):
     criterion = get_criterion(args.loss)
     
     threshold=torch.zeros((n_class,)).to(DEVICE)
-    ltype = 'level' if args.loss=='mse' else 'binary'
     
     unit = 0.6 if args.loss=='mse' else 0.2
     max_scores = []
@@ -142,7 +141,7 @@ def main(args):
         print(maximum_threshold, maximum_score)
         max_scores.append(maximum_score)
     
-    metric = get_metric(threshold=threshold, ltype=ltype)
+    metric = get_metric(threshold=threshold)
     
     ## Test
     loss, score = test(model, valloader, criterion, metric)

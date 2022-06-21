@@ -18,7 +18,7 @@ from utils import *
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
-def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, train=True):
+def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, train=True, th=None):
     '''
     Train model with data
     
@@ -53,6 +53,8 @@ def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, tra
         # label : (B, C)
         loss = criterion(output, label)
         with torch.no_grad():
+            if th=='mse':
+                label = label > 2
             score = metric(output, label)
         
         if train:
@@ -66,7 +68,7 @@ def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, tra
         
         batch_idx += 1
         
-    return mean_loss, mean_score
+    return mean_loss/batch_idx, mean_score/batch_idx
 
 def main(args):
     ## Load Data
@@ -124,7 +126,7 @@ def main(args):
     criterion = get_criterion(args.loss, pos_weight)
     if args.loss=='mse':
         threshold=torch.full((n_class,), 2).to(DEVICE)
-        metric = get_metric(threshold=threshold, ltype='level')
+        metric = get_metric(threshold=threshold)
     else:
         threshold=torch.full((n_class,), 0.5).to(DEVICE)
         metric = get_metric(threshold=threshold)
@@ -137,9 +139,9 @@ def main(args):
                'valid_score':[]}
     for epoch in range(args.epoch):
         print("Train")
-        tr_loss, tr_score = train(model, trainloader, criterion, metric, optimizer, history, epoch=epoch, train=True)
+        tr_loss, tr_score = train(model, trainloader, criterion, metric, optimizer, history, epoch=epoch, train=True, th=args.loss)
         print("Valid")
-        vl_loss, vl_score = train(model, valloader, criterion, metric, optimizer, history, epoch=epoch, train=False)
+        vl_loss, vl_score = train(model, valloader, criterion, metric, optimizer, history, epoch=epoch, train=False, th=args.loss)
         
         history['train_loss'].append(tr_loss)
         history['train_score'].append(tr_score)

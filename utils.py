@@ -1,3 +1,5 @@
+import pdb
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,8 +13,8 @@ def get_criterion(method='bce', pos_weight=None):
         mse = nn.MSELoss()
         return lambda x, y: mse(x.to(float), y)
 
-def get_metric(threshold=None,ltype=None):
-    return F_score(threshold=threshold, ltype=ltype)
+def get_metric(threshold=None):
+    return F_score(threshold=threshold)
     
 def get_optimizer(model, lr, method='adam'):
     if method == 'adam':
@@ -34,9 +36,8 @@ def get_model(model, output_dim=None):
     
     
 class F_score(nn.Module):
-    def __init__(self, ltype='binary', threshold=None):
+    def __init__(self, threshold=None):
         super().__init__()
-        self.ltype = ltype
         if threshold is not None:
             self.THRESHOLDS = threshold
         else:
@@ -48,18 +49,17 @@ class F_score(nn.Module):
         
     def forward(self, x, labels, train=False):
         '''
-        x : (N, 42)
-        labels : (N, 42)
+        x : (N, C)
+        labels : (N, C)
         '''
-        if self.ltype=='level':
-            labels = (labels>=2)
-        
+        #pdb.set_trace()
         predict = (x>self.THRESHOLDS)
-        tp = labels[predict].sum()
+        tp = ((labels==1)*(predict==1)).sum()
         retrieved = predict.sum()
         relevant = labels.sum()
         precision = tp/(retrieved+1e-10)
-        recall = tp/relevant
+        recall = tp/(relevant+1e-10)
+        
         f_score = 2*(precision*recall)/(precision+recall+1e-10)
         
         return f_score
