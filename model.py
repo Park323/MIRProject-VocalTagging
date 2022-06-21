@@ -114,7 +114,7 @@ class resnet_model(nn.Module):
 
 
 class CRNN(nn.Module):
-    def __init__(self):
+    def __init__(self, output_dim):
         super().__init__()
         self.conv_layers=nn.Sequential(
             ResidualCell2d(1, 32, 3),
@@ -132,25 +132,14 @@ class CRNN(nn.Module):
             ResidualCell2d(128, 128, 3),
             nn.ReLU(),
             nn.Dropout2d(),
-        ) # (B, 128, 5, 4)
-        self.rnn = None
+            nn.AdaptiveAvgPool2d((1, 12)),
+        ) # (B, 128, 15, 12) = (B, C, F, L)
+        self.rnn = nn.GRU(128, 128, batch_first=True)
+        self.fc = nn.Linear(128, output_dim)
         
     def forward(self, x):
-        return
-    
-# class resnet2d_model(nn.Module):
-#     '''
-#     Use ResNet50 which is pretrained with ImageNet
-#     input : spectrogram (B,1,H,W)
-#     output : predicted tag distribution (one-hot encoded)
-#     '''
-#     def __init__(self):
-#        super().__init__()
-#        self.resnet = resnet50(pretrained=True)
-#        self.fc = nn.Linear(1000, 42)
-    
-#     def forward(self, x):
-#        x = x.repeat(1, 3, 1, 1)
-#        output = self.resnet(x)
-#        output = self.fc(output)
-#        return output
+        y = self.conv_layers(x).squeeze(2)
+        y = y.permute((0,2,1))
+        outputs, _ = self.rnn(y)
+        outputs = self.fc(outputs[:,-1])
+        return outputs

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model import base_model, drop_model, resnet_model
+from model import base_model, drop_model, resnet_model, CRNN
 
 def get_criterion(method='bce', pos_weight=None):
     if method=='bce':
@@ -33,6 +33,8 @@ def get_model(model, output_dim=None):
         return drop_model(output_dim)
     elif model=='resnet':
         return resnet_model(output_dim)
+    elif model=='crnn':
+        return CRNN(output_dim)
     
     
 class F_score(nn.Module):
