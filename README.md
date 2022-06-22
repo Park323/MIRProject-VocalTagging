@@ -24,6 +24,14 @@ train with learning rate 0.0001 for 5 epochs
 python train.py -learning_rate 0.0001 -epoch 5
 ```
 
+### evaluation
+| model | F-Score | Precision | Recall |
+| :---: | :---: | :---: | :---: |
+|base|0.7489|0.6223|0.9344|
+|resnet|0.7385|0.6050|0.9416|
+|crnn|0.7433|0.6182|0.9261|
+
+
 ### demo result
 ![image](https://user-images.githubusercontent.com/42057488/174925754-2f41a1e9-2662-47b4-89a5-f43b256a7505.png)
 
