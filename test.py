@@ -35,6 +35,8 @@ def test(model, dataloader, criterion, metric):
     batch_idx = 1
     mean_loss = 0.
     mean_score = 0.
+    mean_pr = 0.
+    mean_rc = 0.
 
     with torch.no_grad():        
         process = tqdm(dataloader)
@@ -47,16 +49,18 @@ def test(model, dataloader, criterion, metric):
             # output : (B, C)
             # label : (B, C)
             loss = criterion(output, label)
-            score = metric(output, label)
+            score, pr, rc  = metric(output, label)
             
             mean_loss += loss.detach().item()
             mean_score += score.detach().item()
+            mean_pr += pr.detach().item()
+            mean_rc += rc.detach().item()
             
             process.set_description(f"LOSS  : {loss:.4f}, MEAN LOSS : {mean_loss/batch_idx:.4f}, F-score  : {score:.4f}, MEAN score : {mean_score/batch_idx:.4f}")
             
             batch_idx += 1
         
-    return mean_loss/batch_idx, mean_score/batch_idx
+    return mean_loss/batch_idx, mean_score/batch_idx,  mean_pr/batch_idx,  mean_rc/batch_idx
 
 def main(args):
     print(1)
@@ -114,41 +118,44 @@ def main(args):
     
     criterion = get_criterion(args.loss)
     
-    threshold=torch.zeros((n_class,)).to(DEVICE)
-    
-    unit = 0.6 if args.loss=='mse' else 0.2
-    max_scores = []
-    model.eval()
-    for thres_idx in tqdm(range(n_class)):
-        maximum_score = 0
-        maximum_threshold = 0
-        for i in range(1,5):
-            metric = get_metric(torch.tensor([unit*i]).to(DEVICE))
-            total_score = 0
-            for data, label in valloader:
-                data = data.to(DEVICE)
-                label = label.to(float).to(DEVICE)
-                
-                output = model(data)
-                
-                score = metric(output[:,thres_idx:thres_idx+1], label[:,thres_idx:thres_idx+1])
-                total_score += score.detach().item()
-            mean_score = total_score/len(valloader)
-            if mean_score > maximum_score:
-                maximum_threshold = unit*i
-                maximum_score = mean_score
-        threshold[thres_idx] = maximum_threshold
-        print(maximum_threshold, maximum_score)
-        max_scores.append(maximum_score)
-    
+    if args.thres:
+        threshold = torch.load(args.thres)
+    else:
+        threshold=torch.zeros((n_class,)).to(DEVICE)
+        
+        unit = 0.6 if args.loss=='mse' else 0.2
+        max_scores = []
+        model.eval()
+        for thres_idx in tqdm(range(n_class)):
+            maximum_score = 0
+            maximum_threshold = 0
+            for i in range(1,5):
+                metric = get_metric(torch.tensor([unit*i]).to(DEVICE))
+                total_score = 0
+                for data, label in valloader:
+                    data = data.to(DEVICE)
+                    label = label.to(float).to(DEVICE)
+                    
+                    output = model(data)
+                    
+                    score, pr, rc = metric(output[:,thres_idx:thres_idx+1], label[:,thres_idx:thres_idx+1])
+                    total_score += score.detach().item()
+                mean_score = total_score/len(valloader)
+                if mean_score > maximum_score:
+                    maximum_threshold = unit*i
+                    maximum_score = mean_score
+            threshold[thres_idx] = maximum_threshold
+            print(maximum_threshold, maximum_score)
+            max_scores.append(maximum_score)
+        
     metric = get_metric(threshold=threshold)
     
     ## Test
-    loss, score = test(model, valloader, criterion, metric)
-    print(loss, score)
+    loss, score, pr, rc = test(model, valloader, criterion, metric)
+    print(loss, score, pr, rc)
     
-    loss, score = test(model, testloader, criterion, metric)
-    print(loss, score)
+    loss, score, pr, rc = test(model, testloader, criterion, metric)
+    print(loss, score, pr, rc)
     
     print(max_scores)
     print(threshold)
@@ -163,6 +170,7 @@ def get_args():
     parser.add_argument('--pt')
     parser.add_argument('--loss', default='bce')
     parser.add_argument('--model', default='base')
+    parser.add_argument('--thres', default=None)
     parser.add_argument('--label_filter', '-lb', default='X')
     parser.add_argument('--batch_size', default=8, type=int)
     args = parser.parse_args()

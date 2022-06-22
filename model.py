@@ -113,6 +113,31 @@ class resnet_model(nn.Module):
         return output
 
 
+class SimpleCRNN(nn.Module):
+    def __init__(self, output_dim):
+        super().__init__()
+        self.conv_layers=nn.Sequential(
+            nn.Conv2d(1, 32, 3),
+            nn.MaxPool2d(3, 3, ceil_mode=True),
+            nn.Dropout2d(),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.MaxPool2d(3, 3, ceil_mode=True),
+            nn.Dropout2d(),
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.AdaptiveAvgPool2d((1, 12)),
+            nn.Dropout2d(),
+        ) # (B, 128, 15, 12) = (B, C, F, L)
+        self.rnn = nn.GRU(128, 128, batch_first=True)
+        self.fc = nn.Linear(128, output_dim)
+        
+    def forward(self, x):
+        y = self.conv_layers(x).squeeze(2)
+        y = y.permute((0,2,1))
+        outputs, _ = self.rnn(y)
+        outputs = self.fc(outputs[:,-1])
+        return outputs
+
+
 class CRNN(nn.Module):
     def __init__(self, output_dim):
         super().__init__()

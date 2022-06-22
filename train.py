@@ -55,7 +55,7 @@ def train(model, dataloader, criterion, metric, optimizer, history, epoch=0, tra
         with torch.no_grad():
             if th=='mse':
                 label = label > 2
-            score = metric(output, label)
+            score, _, _ = metric(output, label)
         
         if train:
             loss.backward()

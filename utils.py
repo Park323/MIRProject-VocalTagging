@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model import base_model, drop_model, resnet_model, CRNN
+from model import base_model, drop_model, resnet_model, CRNN, SimpleCRNN
 
 def get_criterion(method='bce', pos_weight=None):
     if method=='bce':
@@ -35,6 +35,8 @@ def get_model(model, output_dim=None):
         return resnet_model(output_dim)
     elif model=='crnn':
         return CRNN(output_dim)
+    elif model=='simple':
+        return SimpleCRNN(output_dim)
     
     
 class F_score(nn.Module):
@@ -64,4 +66,4 @@ class F_score(nn.Module):
         
         f_score = 2*(precision*recall)/(precision+recall+1e-10)
         
-        return f_score
+        return f_score, precision, recall
